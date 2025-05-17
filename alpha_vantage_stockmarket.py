@@ -3,7 +3,7 @@ import pandas as pd
 import time
 from sqlalchemy import create_engine, text
 
-API_KEY = "4H29A6N1IXR30ZSJ"
+API_KEY = "YOUR_API_KEY"  # Replace with your actual API key
 FUNCTION = "TIME_SERIES_DAILY"
 OUTPUTSIZE = "compact"
 
@@ -13,11 +13,11 @@ TOP_B3 = [
 ]
 
 # PostgreSQL configuration
-PG_HOST = 'localhost'
-PG_DB = 'alphavantage_bi'
-PG_USER = 'postgres'
-PG_PASSWORD = '46824682'
-PG_PORT = '5432'
+PG_HOST = 'YOUR_HOST' # Replace with your actual host, probably 'localhost'
+PG_DB = 'YOUR_DB' # Replace with your actual database name
+PG_USER = 'YOUR_USER' # Replace with your actual username, probably 'postgres'
+PG_PASSWORD = 'YOUR_PASSWORD' # Replace with your actual password
+PG_PORT = 'YOUR_PORT' # Replace with your actual port, default is 5432
 
 # Create PostgreSQL connection
 engine = create_engine(f'postgresql://{PG_USER}:{PG_PASSWORD}@{PG_HOST}:{PG_PORT}/{PG_DB}')
