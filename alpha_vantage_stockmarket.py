@@ -1,122 +1,89 @@
 import requests
 import pandas as pd
 import time
-from sqlalchemy import create_engine, text
+import os
+from google.cloud import bigquery
+from google.oauth2 import service_account
+from dotenv import load_dotenv
 
-API_KEY = "YOUR_API_KEY"  # Replace with your actual API key
+# Load environment variables from .env file
+load_dotenv()
+
+# Google Cloud BigQuery configuration
+CREDENTIALS_PATH = os.getenv("CREDENTIALS_PATH")
+PROJECT_ID = os.getenv("PROJECT_ID")
+DATASET_ID = "alphavantage_bi"
+TABLE_ID = "b3_stocks"
+
+# BigQuery client creation
+credentials = service_account.Credentials.from_service_account_file(CREDENTIALS_PATH)
+client = bigquery.Client(credentials=credentials, project=PROJECT_ID)
+table_ref = client.dataset(DATASET_ID).table(TABLE_ID)
+
+# Alpha Vantage API configuration
+API_KEY = os.getenv("API_KEY")
 FUNCTION = "TIME_SERIES_DAILY"
 OUTPUTSIZE = "compact"
 
-# List of top 100 companies in Brazil (B3 exchange)
-TOP_B3 = [
-    'PETR4.SAO', 'VALE3.SAO', 'ITUB4.SAO',
+B3_energy_stocks = [
+    'EGIE3.SAO', 'NEOE3.SAO', 'RNEW11.SAO', 'CPLE6.SAO', 'TAEE11.SAO', 'BOVA11.SAO',
 ]
 
-# PostgreSQL configuration
-PG_HOST = 'YOUR_HOST' # Replace with your actual host, probably 'localhost'
-PG_DB = 'YOUR_DB' # Replace with your actual database name
-PG_USER = 'YOUR_USER' # Replace with your actual username, probably 'postgres'
-PG_PASSWORD = 'YOUR_PASSWORD' # Replace with your actual password
-PG_PORT = 'YOUR_PORT' # Replace with your actual port, default is 5432
+# Table schema definition and creation, if it does not exist
+schema = [
+    bigquery.SchemaField("symbol", "STRING"),
+    bigquery.SchemaField("date", "TIMESTAMP"),
+    bigquery.SchemaField("open", "FLOAT"),
+    bigquery.SchemaField("high", "FLOAT"),
+    bigquery.SchemaField("low", "FLOAT"),
+    bigquery.SchemaField("close", "FLOAT"),
+    bigquery.SchemaField("volume", "FLOAT"),
+]
 
-# Create PostgreSQL connection
-engine = create_engine(f'postgresql://{PG_USER}:{PG_PASSWORD}@{PG_HOST}:{PG_PORT}/{PG_DB}')
-
-# Create table if not exists
 try:
-    with engine.connect() as conn:
-        # Using text() wrapper for multi-line SQL
-        conn.execute(text("""
-            CREATE TABLE IF NOT EXISTS b3_stocks (
-                symbol VARCHAR(10),
-                date TIMESTAMP,
-                open NUMERIC,
-                high NUMERIC,
-                low NUMERIC,
-                close NUMERIC,
-                volume NUMERIC,
-                PRIMARY KEY (symbol, date)
-            )
-            """))
-        conn.commit()  # Explicit commit
-    print("Table verified/created successfully")
-except Exception as e:
-    print(f"Error creating table: {e}")
+    client.get_table(table_ref)
+    print("Table already exists.")
+except:
+    table = bigquery.Table(table_ref, schema=schema)
+    client.create_table(table)
+    print("Successfully created table.")
 
-# Process each stock
-for symbol in TOP_B3:
+# Each stock processing
+for symbol in B3_energy_stocks:
     try:
-        # API request
         url = f"https://www.alphavantage.co/query?function={FUNCTION}&symbol={symbol}&apikey={API_KEY}&outputsize={OUTPUTSIZE}"
-        headers = {'Accept-Charset': 'utf-8'}
-        response = requests.get(url, headers=headers, timeout=15)
+        response = requests.get(url, timeout=15)
         data = response.json()
-        
-        # Extract time series data
         time_series = data.get("Time Series (Daily)", {})
-        
+
         if not time_series:
-            print(f"No data found for {symbol}")
+            print(f"No data found for {symbol} stock.")
             continue
-            
-        # Create temporary DataFrame
+
         df_temp = pd.DataFrame.from_dict(time_series, orient="index")
         df_temp.index = pd.to_datetime(df_temp.index)
         df_temp = df_temp.astype(float)
-        
-        # Standardize column names
-        column_mapping = {
+
+        df_temp = df_temp.rename(columns={
             '1. open': 'open',
             '2. high': 'high',
             '3. low': 'low',
             '4. close': 'close',
             '5. volume': 'volume'
-        }
-        df_temp = df_temp.rename(columns=column_mapping)
-        
-        # Add symbol and date columns
-        df_temp['symbol'] = symbol
-        df_temp['date'] = df_temp.index
-        
-        # Select only relevant columns
-        df_temp = df_temp[['symbol', 'date', 'open', 'high', 'low', 'close', 'volume']]
-        
-        # Insert into PostgreSQL
-        df_temp.to_sql(
-            'b3_stocks',
-            engine,
-            if_exists='append',
-            index=False,
-            method='multi'
-        )
-        
-        print(f"Successfully processed {symbol}")
-        time.sleep(15)  # Respect API rate limit (5 requests/minute)
-        
-    except requests.exceptions.RequestException as e:
-        print(f"Request error for {symbol}: {str(e)[:100]}")
-    except ValueError as e:
-        print(f"Data processing error for {symbol}: {str(e)[:100]}")
+        })
+
+        df_temp["symbol"] = symbol
+        df_temp["date"] = df_temp.index
+        df_temp = df_temp[["symbol", "date", "open", "high", "low", "close", "volume"]]
+
+        # Load DataFrame into BigQuery
+        job = client.load_table_from_dataframe(df_temp, table_ref)
+        job.result()  # Wait for the job to complete
+
+        print(f"{symbol} processado com sucesso.")
+        time.sleep(15)  # Respect API rate limits
+
     except Exception as e:
-        print(f"Unexpected error for {symbol}: {str(e)[:100]}")
+        print(f"Error while processing {symbol}: {e}")
 
-# Create indexes for better query performance
-try:
-    with engine.connect() as conn:
-        conn.execute(text("""
-        CREATE INDEX IF NOT EXISTS idx_b3_stocks_symbol 
-        ON b3_stocks (symbol)
-        """))
-        
-        conn.execute(text("""
-        CREATE INDEX IF NOT EXISTS idx_b3_stocks_date 
-        ON b3_stocks (date)
-        """))
-        
-        conn.commit()  # Explicit commit
-    
-    print("Indexes created successfully")
-except Exception as e:
-    print(f"Error creating the Indexes: {e}")
-
-print("Data processing complete!")
+print("Processing completed.")

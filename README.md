@@ -26,3 +26,5 @@
 # - Data validation checks
 # - Historical data preservation
 # - Optimized query performance
+
+# It's important to mention that the API could retrieve live data and the dashboard could be in live mode, however it's paid and #expensive. Another point is that as it' # a simple project, the ETL could be done directly into the PowerBI or the dataset could #be handled only in Python, it were not necessary to add SQL to the tech stack, # its just for research and study purposes.
