@@ -1,1 +1,3 @@
 .env
+alpha_vantage_stockmarket_legacy.py
+yfinance_companies_info_legacy.py
