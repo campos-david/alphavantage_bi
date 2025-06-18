@@ -2,5 +2,5 @@
 electric-power-sector-stocks-fe99899c6911.json
 alpha_vantage_stockmarket_postgresversion.py
 yfinance_companies_info_postgresversion.py
-alpha_vantage_stockmarket_github.py
-yfinance_companies_info_github.py
+alpha_vantage_stockmarket.py
+yfinance_companies_info.py
