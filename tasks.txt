@@ -1,5 +1,0 @@
-- Corrigir Readme
-- Adicionar alguma stack pra trigger
-- criar PowerBI
-- Pensar em algo pra adicionar ao projeto
-- Criar texto e documento Linkedin
