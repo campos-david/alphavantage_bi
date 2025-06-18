@@ -1,3 +1,6 @@
 .env
-alpha_vantage_stockmarket_legacy.py
-yfinance_companies_info_legacy.py
+electric-power-sector-stocks-fe99899c6911.json
+alpha_vantage_stockmarket_postgresversion.py
+yfinance_companies_info_postgresversion.py
+alpha_vantage_stockmarket_github.py
+yfinance_companies_info_github.py
